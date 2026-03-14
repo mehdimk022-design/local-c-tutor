@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {
+      "name": "hangs_forever",
+      "stdin": "",
+      "expected_stdout": "",
+      "exact_match": true
+    }
+  ]
+}

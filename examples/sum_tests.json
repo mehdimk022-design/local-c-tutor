@@ -1,0 +1,16 @@
+{
+    "cases": [
+        {
+            "name": "small_numbers",
+            "stdin": "2 3\n",
+            "expected_stdout": "5\n",
+            "exact_match": true
+        },
+        {
+            "name": "same_numbers",
+            "stdin": "7 7\n",
+            "expected_stdout": "14\n",
+            "exact_match": true
+        }
+    ]
+}
