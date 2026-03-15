@@ -4,6 +4,7 @@ import argparse
 import json
 
 from lct.compile_run import analyze_c_file
+from lct.explainer import explain_analysis_result, explain_harness_result
 from lct.test_harness import run_test_harness
 
 
@@ -82,6 +83,9 @@ def print_check_result(result) -> None:
             print("Run stderr:")
             print(result.run_result.stderr)
 
+    print()
+    print(explain_analysis_result(result))
+
 
 def print_harness_result(result) -> None:
     print(f"Mode: {result.mode}")
@@ -120,6 +124,9 @@ def print_harness_result(result) -> None:
         if case.stderr:
             print("stderr:")
             print(case.stderr)
+
+    print()
+    print(explain_harness_result(result))
 
 
 def main() -> None:
