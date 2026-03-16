@@ -1,0 +1,88 @@
+[
+    {
+        "id": "printf",
+        "title": "Affichage avec printf",
+        "keywords": [
+            "printf"
+        ],
+        "explanation": "printf sert a afficher du texte ou des valeurs a l'ecran.",
+        "remember": "En C, on utilise printf pour afficher.",
+        "common_errors": [
+            "Ecrire print au lieu de printf",
+            "Oublier les guillemets dans le texte",
+            "Utiliser un mauvais format comme %d ou %f"
+        ]
+    },
+    {
+        "id": "scanf",
+        "title": "Lecture avec scanf",
+        "keywords": [
+            "scanf"
+        ],
+        "explanation": "scanf sert a lire une valeur saisie par l'utilisateur.",
+        "remember": "Avec scanf, il faut souvent utiliser l'adresse de la variable avec &.",
+        "common_errors": [
+            "Oublier le & devant une variable entiere",
+            "Utiliser un mauvais format comme %d ou %f",
+            "Confondre l'entree attendue et l'entree reelle"
+        ]
+    },
+    {
+        "id": "if",
+        "title": "Condition avec if",
+        "keywords": [
+            "if",
+            "else"
+        ],
+        "explanation": "if permet d'executer un bloc seulement si une condition est vraie.",
+        "remember": "La condition doit etre entre parentheses.",
+        "common_errors": [
+            "Oublier les parentheses",
+            "Confondre = et ==",
+            "Mal placer else"
+        ]
+    },
+    {
+        "id": "while",
+        "title": "Boucle while",
+        "keywords": [
+            "while"
+        ],
+        "explanation": "while repete un bloc tant qu'une condition reste vraie.",
+        "remember": "Si la condition ne devient jamais fausse, la boucle peut devenir infinie.",
+        "common_errors": [
+            "Boucle infinie avec while(1)",
+            "Condition jamais modifiee",
+            "Oublier des accolades"
+        ]
+    },
+    {
+        "id": "for",
+        "title": "Boucle for",
+        "keywords": [
+            "for"
+        ],
+        "explanation": "for permet de repeter un bloc avec initialisation, condition et mise a jour.",
+        "remember": "La structure classique est for(initialisation; condition; mise_a_jour).",
+        "common_errors": [
+            "Oublier un point-virgule dans le for",
+            "Mauvaise condition de fin",
+            "Indice qui depasse la limite"
+        ]
+    },
+    {
+        "id": "arrays",
+        "title": "Tableaux",
+        "keywords": [
+            "[",
+            "]"
+        ],
+        "explanation": "Un tableau stocke plusieurs valeurs du meme type.",
+        "remember": "En C, l'indice commence a 0.",
+        "common_errors": [
+            "Depasser la taille du tableau",
+            "Commencer a 1 au lieu de 0",
+            "Utiliser un indice non initialise"
+        ]
+    }
+]

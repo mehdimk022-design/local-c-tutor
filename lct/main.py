@@ -1,4 +1,8 @@
+
 from __future__ import annotations
+
+from pathlib import Path
+from lct.knowledge_base import detect_topics_in_source
 
 import argparse
 import json
@@ -128,6 +132,17 @@ def print_harness_result(result) -> None:
     print()
     print(explain_harness_result(result))
 
+def print_detected_topics(source_path: str) -> None:
+    source_code = Path(source_path).read_text(encoding="utf-8")
+    topics = detect_topics_in_source(source_code)
+
+    if not topics:
+        return
+
+    print()
+    print("Notions detectees :")
+    for topic in topics:
+        print(f"- {topic['id']}: {topic['title']}")
 
 def main() -> None:
     parser = build_parser()
@@ -149,6 +164,7 @@ def main() -> None:
             return
 
         print_check_result(result)
+        print_detected_topics(args.source)
         return
 
     if args.command == "test":
@@ -163,6 +179,7 @@ def main() -> None:
             return
 
         print_harness_result(result)
+        print_detected_topics(args.source)
         return
 
     parser.error("Unknown command.")
