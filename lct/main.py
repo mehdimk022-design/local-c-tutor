@@ -63,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def print_check_result(result) -> None:
+def print_check_result(result, source_path: str | None = None) -> None:
     print(f"Mode: {result.mode}")
     print(f"Message: {result.message}")
     print(f"Compile success: {result.compile_result.success}")
@@ -88,10 +88,10 @@ def print_check_result(result) -> None:
             print(result.run_result.stderr)
 
     print()
-    print(explain_analysis_result(result))
+    print(explain_analysis_result(result, source_path=source_path))
 
 
-def print_harness_result(result) -> None:
+def print_harness_result(result, source_path: str | None = None) -> None:
     print(f"Mode: {result.mode}")
     print(f"Message: {result.message}")
     print(f"Compile success: {result.compile_result.success}")
@@ -130,10 +130,14 @@ def print_harness_result(result) -> None:
             print(case.stderr)
 
     print()
-    print(explain_harness_result(result))
+    print(explain_harness_result(result, source_path=source_path))
 
 def print_detected_topics(source_path: str) -> None:
-    source_code = Path(source_path).read_text(encoding="utf-8")
+    try:
+        source_code = Path(source_path).read_text(encoding="utf-8")
+    except OSError:
+        return
+
     topics = detect_topics_in_source(source_code)
 
     if not topics:
@@ -163,9 +167,9 @@ def main() -> None:
             print(json.dumps(result.to_dict(), indent=2))
             return
 
-        print_check_result(result)
+        print_check_result(result, source_path=args.source)
         print_detected_topics(args.source)
-        return
+        return 
 
     if args.command == "test":
         result = run_test_harness(
@@ -178,7 +182,7 @@ def main() -> None:
             print(json.dumps(result.to_dict(), indent=2))
             return
 
-        print_harness_result(result)
+        print_harness_result(result, source_path=args.source)
         print_detected_topics(args.source)
         return
 

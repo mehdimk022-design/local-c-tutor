@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lct.schemas import AnalysisResult, HarnessResult
+from lct.knowledge_base import detect_topics_in_source
 
 
-def read_source_text(source_path: str) -> str:
+def read_source_text(source_path: str | None) -> str:
+    if not source_path:
+        return ""
+
     try:
         return Path(source_path).read_text(encoding="utf-8")
     except OSError:
@@ -15,165 +18,108 @@ def read_source_text(source_path: str) -> str:
 def detect_topic_hints(source_code: str) -> list[str]:
     hints: list[str] = []
 
-    if "scanf" in source_code:
-        hints.append("Ton programme utilise scanf, donc il dépend fortement du format d'entrée.")
-    if "printf" in source_code:
-        hints.append("Vérifie aussi que printf affiche bien la valeur attendue.")
-    if "while (1)" in source_code or "while(1)" in source_code:
-        hints.append("Je vois une boucle infinie possible avec while(1).")
-    if "[" in source_code and "]" in source_code:
-        hints.append("Le code semble manipuler des tableaux ou des indices.")
-    if "*" in source_code and "&" in source_code:
-        hints.append("Le code semble utiliser des pointeurs ou des adresses.")
-    if "for (" in source_code or "for(" in source_code:
-        hints.append("Le code contient une boucle for, vérifie les bornes de la boucle.")
-    if "if (" in source_code or "if(" in source_code:
-        hints.append("Le code contient une condition if, vérifie bien la logique de la condition.")
+    topics = detect_topics_in_source(source_code)
+
+    for topic in topics:
+        topic_id = topic.get("id", "")
+        title = topic.get("title", "")
+
+        if topic_id == "printf":
+            hints.append("Vérifie aussi que printf affiche bien la valeur attendue.")
+        elif topic_id == "scanf":
+            hints.append("Ton programme utilise scanf, donc il dépend fortement du format d'entrée.")
+        elif topic_id == "while":
+            hints.append("Je vois une boucle while, donc vérifie bien la condition d'arrêt.")
+        else:
+            hints.append(f"Le code semble utiliser la notion suivante : {title}.")
 
     return hints
 
 
-def explain_compile_error(stderr: str, source_code: str) -> list[str]:
-    text = (
-        stderr.lower()
-        .replace("‘", "'")
-        .replace("’", "'")
-        .replace("“", '"')
-        .replace("”", '"')
-    )
+def explain_analysis_result(result, source_path: str | None = None) -> str:
+    lines: list[str] = []
+    source_code = read_source_text(source_path)
+    topic_hints = detect_topic_hints(source_code)
 
-    explanations: list[str] = []
+    lines.append("Explication LCT :")
 
-    if "expected ';'" in text or "expected ';' before" in text:
-        explanations.append("Il manque probablement un point-virgule ';' dans ton code.")
-    if "undeclared" in text:
-        explanations.append("Tu utilises probablement une variable qui n'a pas été déclarée.")
-    if "expected ')'" in text or "expected ')' before" in text:
-        explanations.append("Il manque probablement une parenthèse fermante ')'.")
-    if "expected '}'" in text or "expected '}' before" in text:
-        explanations.append("Il manque probablement une accolade fermante '}'.")
-    if "expected expression" in text:
-        explanations.append("Le compilateur attend une expression valide à cet endroit.")
-    if "implicit declaration" in text:
-        explanations.append("Une fonction semble utilisée sans déclaration correcte ou sans le bon include.")
-    if "scanf" in source_code and "%d" in source_code and "&" not in source_code:
-        explanations.append("Avec scanf, n'oublie pas souvent d'utiliser l'adresse des variables avec '&'.")
+    if result.mode == "compile_error":
+        stderr = result.compile_result.stderr.lower()
 
-    if not explanations:
-        explanations.append("Le compilateur a trouvé une erreur de syntaxe ou de déclaration.")
-        explanations.append("Lis la ligne indiquée par GCC et vérifie les symboles juste avant l'erreur.")
+        if "source file not found" in stderr or "no such file or directory" in stderr:
+            lines.append("- Le fichier source demandé n'existe pas ou le chemin est faux.")
+            lines.append("- Vérifie le nom du fichier et le dossier indiqué dans la commande.")
+        elif "expected ';'" in stderr:
+            lines.append("- Il manque probablement un point-virgule ';' dans ton code.")
+        elif "undefined reference" in stderr:
+            lines.append("- Une fonction semble utilisée sans déclaration correcte ou sans le bon include.")
+        else:
+            lines.append("- Le compilateur a trouvé une erreur de syntaxe ou de déclaration.")
+            lines.append("- Lis la ligne indiquée par GCC et vérifie les symboles juste avant l’erreur.")
+            
 
-    return explanations
+    elif result.mode == "runtime_timeout":
+        lines.append("- Le programme ne s'est pas terminé avant le délai limite.")
+        lines.append("- La cause la plus probable est une boucle infinie ou une attente d'entrée non satisfaite.")
 
+        if "while (1)" in source_code or "while(1)" in source_code:
+            lines.append("- La boucle while(1) est un indice très fort de boucle infinie.")
 
-def explain_runtime_timeout(source_code: str) -> list[str]:
-    explanations = [
-        "Le programme semble ne jamais se terminer avant le délai limite.",
-        "La cause la plus probable est une boucle infinie ou une attente d'entrée non satisfaite.",
-    ]
+    elif result.mode == "runtime_error":
+        lines.append("- Le programme a bien compilé, mais il a échoué pendant l'exécution.")
+        lines.append("- Vérifie les divisions, les accès mémoire, et les entrées utilisateur.")
 
-    if "while (1)" in source_code or "while(1)" in source_code:
-        explanations.append("La boucle while(1) est un indice très fort de boucle infinie.")
-    if "scanf" in source_code:
-        explanations.append("Vérifie aussi si le programme attend une entrée clavier qui n'a pas été fournie.")
+    elif result.mode == "runtime_ok":
+        lines.append("- Le programme compile et s'exécute correctement pour ce lancement simple.")
+        lines.append("- Cela ne garantit pas encore qu'il est correct pour tous les cas de test.")
 
-    return explanations
-
-
-def explain_runtime_error(source_code: str) -> list[str]:
-    explanations = [
-        "Le programme compile, mais il échoue pendant l'exécution.",
-        "Vérifie les accès mémoire, les divisions interdites, et les entrées utilisateur.",
-    ]
-
-    if "[" in source_code and "]" in source_code:
-        explanations.append("Si tu utilises un tableau, vérifie que les indices restent dans les limites.")
-    if "*" in source_code:
-        explanations.append("Si tu utilises des pointeurs, vérifie qu'ils pointent vers une zone valide.")
-
-    return explanations
-
-
-def explain_logic_bug(source_code: str) -> list[str]:
-    explanations = [
-        "Le programme compile et s'exécute, mais le résultat ne correspond pas aux tests attendus.",
-        "Cela indique probablement une erreur logique dans le calcul ou dans le traitement des entrées.",
-    ]
-
-    if "scanf" in source_code:
-        explanations.append("Commence par vérifier que les valeurs lues avec scanf sont bien celles que tu crois utiliser.")
-    if "+" in source_code or "-" in source_code or "*" in source_code or "/" in source_code:
-        explanations.append("Vérifie surtout l'opérateur utilisé dans le calcul principal.")
-    if "if (" in source_code or "if(" in source_code:
-        explanations.append("Une condition if incorrecte peut facilement produire une mauvaise sortie.")
-    if "for (" in source_code or "for(" in source_code:
-        explanations.append("Vérifie aussi les bornes de boucle : début, fin, et incrément.")
-
-    return explanations
-
-
-def explain_tests_ok(source_code: str) -> list[str]:
-    explanations = [
-        "Tous les tests actuels passent.",
-        "Cela veut dire que, pour ces cas de test, le programme se comporte comme attendu.",
-    ]
-
-    if "scanf" in source_code:
-        explanations.append("Tu peux encore ajouter d'autres cas de test pour vérifier plus d'entrées possibles.")
-
-    return explanations
-
-
-def format_explanation_block(lines: list[str], topic_hints: list[str]) -> str:
-    output_lines = ["Explication LCT :"]
-
-    for line in lines:
-        output_lines.append(f"- {line}")
+    else:
+        lines.append("- Résultat non reconnu par l'explicateur actuel.")
 
     if topic_hints:
-        output_lines.append("Indices utiles :")
+        lines.append("Indices utiles :")
         for hint in topic_hints:
-            output_lines.append(f"- {hint}")
+            lines.append(f"- {hint}")
 
-    return "\n".join(output_lines)
+    return "\n".join(lines)
 
 
-def explain_analysis_result(result: AnalysisResult) -> str:
-    source_code = read_source_text(result.compile_result.source_path)
+def explain_harness_result(result, source_path: str | None = None) -> str:
+    lines: list[str] = []
+    source_code = read_source_text(source_path)
     topic_hints = detect_topic_hints(source_code)
 
-    if result.mode == "compile_error":
-        lines = explain_compile_error(result.compile_result.stderr, source_code)
-    elif result.mode == "runtime_timeout":
-        lines = explain_runtime_timeout(source_code)
-    elif result.mode == "runtime_error":
-        lines = explain_runtime_error(source_code)
-    elif result.mode == "runtime_ok":
-        lines = [
-            "Le programme compile et s'exécute correctement pour ce lancement simple.",
-            "Cela ne garantit pas encore qu'il est correct pour tous les cas de test.",
-        ]
-    else:
-        lines = ["Résultat non reconnu par l'explainer local."]
-
-    return format_explanation_block(lines, topic_hints)
-
-
-def explain_harness_result(result: HarnessResult) -> str:
-    source_code = read_source_text(result.compile_result.source_path)
-    topic_hints = detect_topic_hints(source_code)
+    lines.append("Explication LCT :")
 
     if result.mode == "compile_error":
-        lines = explain_compile_error(result.compile_result.stderr, source_code)
+        lines.append("- Le programme ne compile pas, donc les tests n'ont pas pu être exécutés.")
+        lines.append("- Corrige d'abord les erreurs de compilation avant de vérifier la logique.")
+
     elif result.mode == "runtime_timeout":
-        lines = explain_runtime_timeout(source_code)
-    elif result.mode == "runtime_error":
-        lines = explain_runtime_error(source_code)
+        lines.append("- Au moins un test a dépassé le temps limite.")
+        lines.append("- Cela indique souvent une boucle infinie ou une lecture d'entrée bloquante.")
+
+        if "while (1)" in source_code or "while(1)" in source_code:
+            lines.append("- Je vois une boucle infinie possible avec while(1).")
+
     elif result.mode == "logic_bug":
-        lines = explain_logic_bug(source_code)
-    elif result.mode == "tests_ok":
-        lines = explain_tests_ok(source_code)
-    else:
-        lines = ["Résultat non reconnu par l'explainer local."]
+        lines.append("- Le programme compile et s’exécute, mais le résultat ne correspond pas aux tests attendus.")
+        lines.append("- Cela indique probablement une erreur logique dans le calcul ou dans le traitement des entrées.")
+        lines.append("- Commence par vérifier que les valeurs lues avec scanf sont bien celles que tu crois utiliser.")
 
-    return format_explanation_block(lines, topic_hints)
+        if "-" in source_code and "printf" in source_code:
+            lines.append("- Vérifie surtout l'opérateur utilisé dans le calcul principal.")
+
+    elif result.mode == "all_passed":
+        lines.append("- Tous les tests sont passés.")
+        lines.append("- Le comportement observé correspond aux résultats attendus pour cette série de tests.")
+
+    else:
+        lines.append("- Résultat de test non reconnu par l'explicateur actuel.")
+
+    if topic_hints:
+        lines.append("Indices utiles :")
+        for hint in topic_hints:
+            lines.append(f"- {hint}")
+
+    return "\n".join(lines)
