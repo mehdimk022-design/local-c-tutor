@@ -1,15 +1,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from lct.knowledge_base import detect_topics_in_source
-
 import argparse
 import json
 
 from lct.compile_run import analyze_c_file
-from lct.explainer import explain_analysis_result, explain_harness_result
 from lct.test_harness import run_test_harness
+from lct.presenter import print_check_result, print_detected_topics, print_harness_result
+
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -62,92 +60,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
-
-def print_check_result(result, source_path: str | None = None) -> None:
-    print(f"Mode: {result.mode}")
-    print(f"Message: {result.message}")
-    print(f"Compile success: {result.compile_result.success}")
-    print(f"Compile return code: {result.compile_result.returncode}")
-
-    if result.compile_result.stderr:
-        print("Compile stderr:")
-        print(result.compile_result.stderr)
-
-    if result.run_result is not None:
-        print(f"Run success: {result.run_result.success}")
-        print(f"Run return code: {result.run_result.returncode}")
-        print(f"Timed out: {result.run_result.timed_out}")
-        print(f"Duration ms: {result.run_result.duration_ms:.2f}")
-
-        if result.run_result.stdout:
-            print("Run stdout:")
-            print(result.run_result.stdout)
-
-        if result.run_result.stderr:
-            print("Run stderr:")
-            print(result.run_result.stderr)
-
-    print()
-    print(explain_analysis_result(result, source_path=source_path))
-
-
-def print_harness_result(result, source_path: str | None = None) -> None:
-    print(f"Mode: {result.mode}")
-    print(f"Message: {result.message}")
-    print(f"Compile success: {result.compile_result.success}")
-    print(f"Compile return code: {result.compile_result.returncode}")
-    print(f"Total cases: {result.total}")
-    print(f"Passed: {result.passed}")
-    print(f"Failed: {result.failed}")
-    print(f"Likely logic bug: {result.likely_logic_bug}")
-
-    if result.compile_result.stderr:
-        print("Compile stderr:")
-        print(result.compile_result.stderr)
-
-    for case in result.case_results:
-        print()
-        print(f"Case: {case.name}")
-        print(f"Passed: {case.passed}")
-        print(f"Timed out: {case.timed_out}")
-        print(f"Return code: {case.returncode}")
-
-        if case.failure_reason:
-            print(f"Failure reason: {case.failure_reason}")
-
-        if case.stdin:
-            print("stdin:")
-            print(case.stdin)
-
-        print("Expected stdout:")
-        print(case.expected_stdout)
-
-        print("Actual stdout:")
-        print(case.actual_stdout)
-
-        if case.stderr:
-            print("stderr:")
-            print(case.stderr)
-
-    print()
-    print(explain_harness_result(result, source_path=source_path))
-
-def print_detected_topics(source_path: str) -> None:
-    try:
-        source_code = Path(source_path).read_text(encoding="utf-8")
-    except OSError:
-        return
-
-    topics = detect_topics_in_source(source_code)
-
-    if not topics:
-        return
-
-    print()
-    print("Notions detectees :")
-    for topic in topics:
-        print(f"- {topic['id']}: {topic['title']}")
-
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -157,37 +69,44 @@ def main() -> None:
         return
 
     if args.command == "check":
-        result = analyze_c_file(
-            source_path=args.source,
-            stdin_text=args.stdin,
-            timeout_seconds=args.timeout,
-        )
-
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2))
-            return
-
-        print_check_result(result, source_path=args.source)
-        print_detected_topics(args.source)
-        return 
+        handle_check_command(args)
+        return
 
     if args.command == "test":
-        result = run_test_harness(
-            source_path=args.source,
-            test_file_path=args.tests,
-            timeout_seconds=args.timeout,
-        )
-
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2))
-            return
-
-        print_harness_result(result, source_path=args.source)
-        print_detected_topics(args.source)
+        handle_test_command(args)
         return
 
     parser.error("Unknown command.")
 
+
+def handle_check_command(args) -> None:
+    result = analyze_c_file(
+        source_path=args.source,
+        stdin_text=args.stdin,
+        timeout_seconds=args.timeout,
+    )
+
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+        return
+
+    print_check_result(result, source_path=args.source)
+    print_detected_topics(args.source)
+
+
+def handle_test_command(args) -> None:
+    result = run_test_harness(
+        source_path=args.source,
+        test_file_path=args.tests,
+        timeout_seconds=args.timeout,
+    )
+
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+        return
+
+    print_harness_result(result, source_path=args.source)
+    print_detected_topics(args.source)
 
 if __name__ == "__main__":
     main()
